@@ -1,0 +1,26 @@
+CrowdStrikeFDR
+| where TimeGenerated > ago(30d)
+| where event_simpleName == 'InstalledApplication'
+| where AppVendor == 'Your Company Name' or isempty(AppVendor) //optionally can break out into 2 different queries
+| where AppName !has 'mycompany'
+| summarize
+    by
+    event_platform,
+    ComputerName,
+    event_simpleName,
+    AppName,
+    AppPath,
+    AppVendor,
+    AppVersion,
+    tostring(AppProductId),
+    AppIs64Bit,
+    SHA256HashData,
+    SensorGroupingTags
+| extend AppIs64Bit = case(AppIs64Bit == "0", "No", AppIs64Bit == "1", "Yes", AppIs64Bit)
+| summarize
+    make_set(AppVersion, 5),
+    dcount(ComputerName),
+    make_set(ComputerName, 10),
+    make_set(SensorGroupingTags)
+    by event_simpleName, AppVendor, AppName
+| sort by dcount_ComputerName asc  nulls first
