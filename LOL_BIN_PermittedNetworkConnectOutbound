@@ -1,0 +1,123 @@
+//Allowed Outbound Network connections from LOL BINs
+let LOLBins = dynamic([
+    "AddinUtil.exe", "AppInstaller.exe", "Aspnet_Compiler.exe", "At.exe",
+    "Atbroker.exe", "Bash.exe", "Bitsadn.exe", "CertOC.exe", "CertReq.exe", "Certutil.exe", "Cmd.exe", "Cmdkey.exe", "cmdl32.exe", "Cmstp.exe", "Colorcpl.exe", "ConfigSecurityPolicy.exe", "Control.exe", "Csc.exe", "Cscript.exe", "CustomShellHost.exe", "DataSvcUtil.exe", "Desktopimgdownldr.exe", "DeviceCredentialDeployment.exe", "Dfsvc.exe", "Diantz.exe", "Diskshadow.exe", "Dnscmd.exe", "Esentutl.exe", "Eventvwr.exe", "Expand.exe",
+    "Explorer.exe", "Extexport.exe", "Extrac32.exe", "Findstr.exe", "Finger.exe", "fltMC.exe", "Forfiles.exe", "Fsutil.exe", Ftp.exe, "Gpscript.exe", "Hh.exe", "IMEWDBLD.exe", "Ie4uinit.exe", "iediagcmd.exe", "Ieexec.exe", "Ilasm.exe",
+    "Infdefaultinstall.exe", "Installutil.exe", "Jsc.exe", "Ldifde.exe", "Makecab.exe", "Mavinject.exe", "Microsoft.Workflow.Compiler.exe", "Mmc.exe", "MpCmdRun.exe", "Msbuild.exe", "Msconfig.exe", "Msdt.exe",
+    "Mshta.exe", "Msiexec.exe", "Netsh.exe", "Ngen.exe", "Odbcconf.exe", "OfflineScannerShell.exe", "Pcalua.exe", "Pcwrun.exe", "Pktmon.exe", "Pnputil.exe", "Presentationhost.exe", "Print.exe",
+    "PrintBrm.exe", "Provlaunch.exe", "Psr.exe", "Rasautou.exe", "rdrleakdiag.exe",
+    "Reg.exe", "Regasm.exe", "Regedit.exe", "Regini.exe", "Register-cimprovider.exe", "Regsvcs.exe",
+    "Regsvr32.exe", "Replace.exe", "Rpcping.exe", "Rundll32.exe", "Runexehelper.exe", "Runonce.exe", "Runscripthelper.exe", "Sc.exe", "Schtasks.exe", "Scriptrunner.exe", "Setres.exe", "SettingSyncHost.exe", "ssh.exe", "Stordiag.exe",
+    "SyncAppvPublishingServer.exe", "Tar.exe", "Ttdinject.exe", "Tttracer.exe", "Unregmp2.exe", "vbc.exe",
+    "Verclsid.exe", "Wab.exe", "wbadmin.exe", "winget.exe", "Wlrmdr.exe", "Wmic.exe", "WorkFolders.exe", "Wscript.exe", "Wsreset.exe", "wuauclt.exe", "Xwizard.exe", "msedge_proxy.exe", "wt.exe",
+    "Advpack.dll", "Desk.cpl", "Ieadvpack.dll", "Ieframe.dll", "Mshtml.dll", "Pcwutl.dll", "Scrobj.dll", "Setupapi.dll", "Shdocvw.dll", "Shell32.dll", "Shimgvw.dll",
+    "Syssetup.dll", "Url.dll", "Zipfldr.dll", "Comsvcs.dll", "AccCheckConsole.exe", "adplus.exe", "AgentExecutor.exe", "AppCert.exe", "Appvlp.exe", "Cdb.exe", "Createdump.exe", "csi.exe", "DefaultPack.EXE", "Devinit.exe",
+    "Devtoolslauncher.exe", "dnx.exe", "Dotnet.exe", "dsdbutil.exe", "dtutil.exe", "Dump64.exe", "DumpMinitool.exe", "Dxcap.exe", "Mftrace.exe", "Microsoft.NodejsTools.PressAnyKey.exe", "MSAccess.exe", "Msdeploy.exe", "MsoHtmEd.exe",
+    "Mspub.exe", "msxsl.exe", "ntdsutil.exe", "OpenConsole.exe", "Procdump.exe", "ProtocolHandler.exe", "rcsi.exe", "Remote.exe", "Sqldumper.exe", "Sqlps.exe",
+    "SQLToolsPS.exe", "Squirrel.exe", "te.exe", "TestWindowRemoteAgent.exe", "Tracker.exe", "Update.exe", "VSDiagnostics.exe", "VSIISExeLauncher.exe", "Visio.exe", "Vshadow.exe", "vsjitdebugger.exe", "Wfc.exe", "WinProj.exe",
+    "Wsl.exe", "devtunnel.exe", "vsls-agent.exe", "vstest.console.exe", "winfile.exe", "winrm.vbs", "Pester.bat", "powershell.exe", "psexec.exe", "psexecsvc.exe", "mstsc.exe", "cmrcviewer"]);
+//omitting due to noise "Msedge.exe", "Teams.exe", "OneDriveStandaloneUpdater.exe","Powerpnt.exe",   "Winword.exe",
+CrowdStrike
+| where TimeGenerated >= ago(7d)
+| where event_simpleName has 'NetworkConnect'
+    or event_simpleName == 'FirewallRuleIP6Matched'
+    or event_simpleName == 'FirewallRuleIP4Matched'
+    or event_simpleName == 'NetworkReceiveAcceptIP4'
+    or event_simpleName == 'NetworkReceiveAcceptIP6'
+| where (ipv4_is_private(RemoteAddressIP4)) != true //Omit rfc1918
+| where ConnectionDirection == "0" and RuleAction == "1" //retrieve where activity was outbound AND allowed
+| where FileName has_any (LOLBins) //Same as ImageFileName
+    or TargetFileName has_any (LOLBins)
+    or ContextImageFileName has_any (LOLBins)
+    or ContextBaseFileName has_any (LOLBins)
+    or CommandLine has_any (LOLBins)
+| where not(ComputerName has_any ("red1", "red2")) //your red team servers here
+| where not(CommandLine has_any ("C:\\ProgramData\\vendor\\remote\\scripts","script.ps1")) //tune expected activity
+| extend Idx = has_any_index(tostring(record), LOLBins) //Searches the string for items specified in the array and returns the position in the array of the first item found in the string to variable IDX
+| extend Matched_LOL_Bin = iif(Idx < 0, "NO MATCH FOUND", tostring(LOLBins[Idx]))
+| project
+    TimeGenerated,
+    event_simpleName,
+    ComputerName,
+    ContextBaseFileName,
+    FileName,
+    TargetFileName,
+    ContextImageFileName,
+    CommandLine,
+    LocalAddressIP4,
+    LocalPort,
+    RemoteAddressIP4,
+    RemotePort,
+    geo_ip4=geo_info_from_ip_address(RemoteAddressIP4),
+    geo_ip6=geo_info_from_ip_address(RemoteAddressIP6),
+    RemoteAddressIP6,
+    LocalAddressIP6,
+    tostring(Protocol),
+    ConnectionDirection= parse_json(record).ConnectionDirection,
+    RuleAction= parse_json(record).RuleAction,
+    record,
+    Matched_LOL_Bin
+| extend
+    IPProtocolType = case(
+                     Protocol == "0",
+                     "IP",
+                     Protocol == "21",
+                     "ICMP",
+                     Protocol == "6",
+                     "TCP",
+                     Protocol == "17",
+                     "UDP",
+                     Protocol == "41",
+                     "IPV6",
+                     Protocol == "58",
+                     "ICMPV6",
+                     Protocol == "255",
+                     "UNKNOWN - Refer to CS Events Data Dictionary",
+                     Protocol
+                 ),
+    ConnectionDirection = case(
+                          ConnectionDirection == "0",
+                          "DIRECTION_OUTBOUND",
+                          ConnectionDirection == "1",
+                          "DIRECTION_INBOUND",
+                          ConnectionDirection == "2",
+                          "DIRECTION_NEITHER",
+                          ConnectionDirection == "3",
+                          "DIRECTION_BOTH",
+                          ConnectionDirection == "4",
+                          "DIRECTION_UNKNOWN",
+                          ConnectionDirection
+                      ),
+    FirewallRuleAction = case(
+                         RuleAction == "0",
+                         "RULE_ACTION_INVALID",
+                         RuleAction == "1",
+                         "RULE_ACTION_ALLOW",
+                         RuleAction == "2",
+                         "RULE_ACTION_DENY",
+                         RuleAction
+                     ),
+    //Enrichment as of 11/18/2024. IPv4 and IPv6 Protocol have same values in CS Data Dictionary.
+    geo_ip = coalesce(geo_ip4, geo_ip6),
+    RemoteAddressIP = coalesce(RemoteAddressIP4, RemoteAddressIP6),
+    LocalAddressIP = coalesce(LocalAddressIP4, LocalAddressIP6)
+| project
+    TimeGenerated,
+    event_simpleName,
+    Matched_LOL_Bin,
+    FileName,
+    ComputerName,
+    IPProtocolType,
+    CommandLine,
+    RemoteAddressIP,
+    IP_Country=tostring(geo_ip.country),
+    IP_City=tostring(geo_ip.city),
+    TargetFileName,
+    ContextImageFileName,
+    ContextBaseFileName,
+    LocalPort,
+    RemotePort,
+    LocalAddressIP,
+    ConnectionDirection,
+    FirewallRuleAction,
+    record
