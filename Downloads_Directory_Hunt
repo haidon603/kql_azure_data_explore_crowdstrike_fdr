@@ -1,0 +1,20 @@
+//Files in Downloads Directory (Macintosh)
+CrowdStrike
+| where TimeGenerated >= ago(7d)
+| where event_platform == 'Mac'
+| where  not(TargetFileName has_any (".ics",".png",".jpeg")) //ignore calendar and graphics
+| where TargetFileName matches regex '/Users/\\w+/Downloads/'
+| project  FileExtension =  (extract(\\.[0-9a-z]+$,0,TargetFileName)),FileName = (extract("([^\\\\/\\n]*[\\\\/]+)+(.*)$",2,TargetFileName)), TargetFileName, event_simpleName, record
+ | summarize count(TargetFileName), make_set(FileName, 30), make_set(record, 4) by FileExtension, event_simpleName
+| sort by count_TargetFileName asc
+
+//Files in Downloads Directory (Windows)
+CrowdStrike
+| where TimeGenerated >= ago(7d)
+| where event_platform == 'Win'
+| where  not(TargetFileName has_any (".ics",".png",".jpeg"))//ignore calendar and graphics
+| where TargetFileName matches regex '\\\\Device\\\\HarddiskVolume\\d\\\\Users\\\\\\w+\\\\Downloads\\\\'
+| project  FileExtension =  (extract(\\.[0-9a-z]+$,0,TargetFileName)),FileName = (extract("([^\\\\/\\n]*[\\\\/]+)+(.*)$",2,TargetFileName)), TargetFileName, event_simpleName, record
+| summarize count(TargetFileName), make_set(FileName, 30), make_set(record, 4) by FileExtension, event_simpleName
+| sort by count_TargetFileName asc
+ 
