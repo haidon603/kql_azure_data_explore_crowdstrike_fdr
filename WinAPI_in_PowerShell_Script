@@ -1,0 +1,26 @@
+//Detects calls to WinAPI libraries from PowerShell scripts. Attackers have leveraged these APIs to avoid detection based on typical PS function calls… Hunt for interesting scripts.
+let win_API_library = dynamic(["Advapi32.dll", "kernel32.dll", "KernelBase.dll", "ntdll.dll", "secur32.dll", "user32.dll"]);
+//https://github.com/SigmaHQ/sigma/blob/master/rules-threat-hunting/windows/powershell/powershell_script/posh_ps_win_api_functions_access.yml
+CrowdStrike
+| where TimeGenerated >= ago(7d)
+| where os == "Win"
+| where event_simpleName startswith "Script"
+    or event_simpleName == "CommandHistory"
+    or event_simpleName == "NewScriptWritten"
+| where ScriptContent has_any (win_API_library)
+| where not (ScriptContentName has_any ("_PSScriptPolicyTest", "Uninstall.vbs")) //Tune as needed
+| extend Idx = has_any_index(tostring(ScriptContent), win_API_library)
+| extend MatchedTerm = iif(Idx < 0, "", tostring(win_API_library[Idx]))
+| project
+    TimeGenerated,
+    MatchedTerm,
+    ComputerName,
+    ScriptContentName,
+    Process=FileName,
+    ScriptContent,
+    CommandLine,
+    CommandHistory,
+    record,
+    event_simpleName
+| summarize make_set(ComputerName, 10), dcount(ComputerName), make_set(CommandLine) by Process, MatchedTerm, ScriptContent //for readability limit to retrieve only 10 computers
+| sort by dcount_ComputerName
