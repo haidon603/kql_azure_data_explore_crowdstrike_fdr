@@ -1,0 +1,31 @@
+//Execution of renamed binaries
+let NewExecutableRenamed =
+    CrowdStrike
+    | where TimeGenerated >= ago(7d)
+    | where event_simpleName == "NewExecutableRenamed"  //identify renamed executables
+    | where not(TargetFileName has_any ("msedge.exe", "chrome.exe", "update.exe") //Tune as needed
+    | project ComputerName, FileName, SourceFileName, TargetFileName, OU; //use TargetFileName from NewExecutableRenamed as 'ImageFileName' in processrollup
+let ProcessRollup2 =
+    (
+    CrowdStrike
+    | where TimeGenerated >= ago(7d)
+    | where event_simpleName == 'ProcessRollup2'
+    | project
+        ComputerName,
+        CommandLine,
+        ImageFileName,
+        TargetProcessId,
+        SourceProcessId,
+        NewFileName = (extract("([^\\\\/\\n]*[\\\\/]+)+(.*)$", 2, ImageFileName)));
+//union NewExecutableRenamed, ProcessRollup2
+NewExecutableRenamed //2 column join using computer and file
+| join kind=innerunique (ProcessRollup2) on $left.ComputerName == $right.ComputerName and $left.TargetFileName == $right.ImageFileName //Correlate TargetFileName field on NewExecutableRenamed event with a filename available on ImageFileName field on ProcessRollup2 event
+| project
+    ComputerName,
+    OU,
+    SourceFileName,
+    NewFileName,
+    CommandLine,
+    ImageFileName,
+    TargetProcessId,
+    SourceProcessId
