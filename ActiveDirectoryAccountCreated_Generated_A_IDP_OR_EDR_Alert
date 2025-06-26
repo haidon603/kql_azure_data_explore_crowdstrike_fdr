@@ -1,0 +1,230 @@
+database("Endpoint").CrowdStrikeFDR
+
+| where TimeGenerated > ago(100d)
+
+| where event_simpleName == "ActiveDirectoryAccountCreated"
+
+| where SamAccountName startswith "you username convention here" // //add positive match to only encompass human identities
+
+| where not (AccountDomain has_any ("testdomain.com")) //ignore dev domain(s)
+
+| project UserName = SamAccountName, AccountCreated_TimeGenerated=TimeGenerated
+
+| join kind=inner
+
+    (
+
+    database("Endpoint").CrowdStrikeFDR
+
+    | where ExternalApiType == 'Event_DetectionSummaryEvent'
+
+    | where TimeGenerated > ago(100d)
+
+    | project
+
+        Alert_TimeGenerated=TimeGenerated,
+
+        ComputerName,
+
+        UserName,
+
+        DetectDescription,
+
+        PatternDispositionDescription,
+
+        PatternDispositionFlags,
+
+        Objective,
+
+        Tactic,
+
+        Technique,
+
+        FileName,
+
+        CommandLine,
+
+        ParentImageFileName,
+
+        ParentCommandLine,
+
+        GrandparentImageFileName,
+
+        GrandparentCommandLine,
+
+        QuarantinedFileName,
+
+        SHA256HashData,
+
+        FalconHostLink,
+
+        record
+
+    | sort by ComputerName, UserName
+
+    )
+
+    on UserName
+
+| extend
+
+    Summary = strcat("The account ", UserName, " created at: ", AccountCreated_TimeGenerated, " tripped the detection: ", DetectDescription, " at ", Alert_TimeGenerated, " on ", ComputerName, ".", " The observed Tactic/Technique were ", Tactic, "/", Technique),
+
+    todatetime(Alert_TimeGenerated),
+
+    todatetime(AccountCreated_TimeGenerated)//
+
+| project
+
+    Summary,
+
+    DaysBetween = datetime_diff('day', Alert_TimeGenerated, AccountCreated_TimeGenerated), //calculate differencee between when the account was created and when the detection triggered
+
+    FileName,
+
+    CommandLine,
+
+    ParentImageFileName,
+
+    ParentCommandLine,
+
+    GrandparentImageFileName,
+
+    GrandparentCommandLine,
+
+    Alert_TimeGenerated,
+
+    ComputerName,
+
+    UserName,
+
+    AccountCreated_TimeGenerated,
+
+    DetectDescription,
+
+    PatternDispositionDescription,
+
+    PatternDispositionFlags,
+
+    Objective,
+
+    Tactic,
+
+    Technique,
+
+    QuarantinedFileName,
+
+    SHA256HashData,
+
+    FalconHostLink,
+
+    record
+
+    | sort by DaysBetween desc //sort by days between account creation/alert firing
+
+-------------------------------------
+database("Endpoint").CrowdStrikeFDR
+
+| where TimeGenerated > ago(100d)
+
+| where event_simpleName == "ActiveDirectoryAccountCreated"
+
+| where SamAccountName startswith "your username convention here" //add positive match to only encompass human identities
+
+| where not (SamAccountName has_any ("$")) //ignore machine logons
+
+| project sourceAccountName = SamAccountName, AccountCreated_TimeGenerated=TimeGenerated
+
+| join kind=inner
+
+    (
+
+    database("Identity").IDPVendorTable
+
+    | where TimeGenerated > ago(100d)
+
+    | where cat == "DetectionSummaryEvent"  
+
+    | project
+
+        Alert_TimeGenerated=TimeGenerated,
+
+        sourceAccountUpn,
+
+        sourceAccountName,
+
+        sourceAccountDomain,
+
+        sourceEndpointHostName,
+
+        detectName,
+
+        msg,
+
+        objective,
+
+        technique,
+
+        severityName,
+
+        targetAccountName,
+
+        sev,
+
+        endpointName,
+
+        record,
+
+        vendorlinktoalert
+
+    | sort by sourceAccountUpn, sourceAccountName, sourceAccountDomain)
+
+    on sourceAccountName
+
+| extend
+
+    Summary = strcat("The source account ", sourceAccountName, " created at: ", AccountCreated_TimeGenerated, " tripped the detection: ", technique, " at ", Alert_TimeGenerated, " on ", sourceEndpointHostName, ".", " The observed Severity/Objective being ",severityName, " ", objective, " The target account was: ", targetAccountName),
+
+    todatetime(Alert_TimeGenerated),
+
+    todatetime(AccountCreated_TimeGenerated)
+
+| project
+
+    Summary,
+
+    DaysBetween = datetime_diff('day', Alert_TimeGenerated, AccountCreated_TimeGenerated),
+
+    AccountCreated_TimeGenerated,
+
+    Alert_TimeGenerated,
+
+    sourceAccountUpn,
+
+    sourceAccountName,
+
+    sourceAccountDomain,
+
+    sourceEndpointHostName,
+
+    targetAccountName,
+
+    detectName,
+
+    msg,
+
+    objective,
+
+    technique,
+
+    severityName,
+
+    sev,
+
+    endpointName,
+
+    record,
+
+    vendorlinktoalert
+
+ 
