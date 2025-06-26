@@ -1,0 +1,262 @@
+CrowdStrikeFDR
+
+| where TimeGenerated > ago(1d)
+
+| where event_simpleName == "NetworkConnectIP4"
+
+| project
+
+    cid,
+
+    ComputerName,
+
+    OU,
+
+    SensorGroupingTags,
+
+    event_platform,
+
+    TimeGenerated,
+
+    ContextBaseFileName,
+
+    LocalAddressIP4,
+
+    RemoteAddressIP4,
+
+    RemoteAddressIP6,
+
+    tostring(RemotePort), //convert in to string for enrichment
+
+    tostring(Protocol), //convert in to string for enrichment
+
+    ConnectionDirection,
+
+    geo_ip4=geo_info_from_ip_address(tostring(RemoteAddressIP4)), //enrich dest IP  which creates new field geo_ip4
+
+    geo_ip6=geo_info_from_ip_address(RemoteAddressIP6) //enrich dest IP which creates new field geo_ip6
+
+//| where isnotempty(geo_ip4) //ignore empty geo logs for ip4
+
+| extend //enrich connection direction, cid, ip protocol
+
+    ConnectionDirection = case(
+
+                          ConnectionDirection == "0",
+
+                          "DIRECTION_OUTBOUND",
+
+                          ConnectionDirection == "1",
+
+                          "DIRECTION_INBOUND",
+
+                          ConnectionDirection == "2",
+
+                          "DIRECTION_NEITHER",
+
+                          ConnectionDirection == "3",
+
+                          "DIRECTION_BOTH",
+
+                          ConnectionDirection == "4",
+
+                          "DIRECTION_UNKNOWN",
+
+                          ConnectionDirection
+
+                      ),
+
+    cid = case(
+
+          cid == "yourcidhere",
+
+          "Production1",
+
+          cid == "yourcidhere",
+
+          "Production2",
+
+          cid == "yourcidhere",
+
+          "Production3",
+
+          cid == "yourcidhere",
+
+          "Production4",
+
+          cid == "yourcidhere",
+
+          "Production5",
+
+          cid
+
+      ),    
+
+    IPProtocolType = case(
+
+                     Protocol == "0",
+
+                     "IP",
+
+                     Protocol == "21",
+
+                     "ICMP",
+
+                     Protocol == "6",
+
+                     "TCP",
+
+                     Protocol == "17",
+
+                     "UDP",
+
+                     Protocol == "41",
+
+                     "IPV6",
+
+                     Protocol == "58",
+
+                     "ICMPV6",
+
+                     Protocol == "255",
+
+                     "UNKNOWN - Refer to CS Events Data Dictionary",
+
+                     Protocol
+
+                 ),    
+
+    RemotePort = case(
+
+                 RemotePort == "20",
+
+                 "FTP",
+
+                 RemotePort == "21",
+
+                 "FTP",
+
+                 RemotePort == "22",
+
+                 "SSH",
+
+                 RemotePort == "23",
+
+                 "TELNET",
+
+                 RemotePort == "25",
+
+                 "SMTP",
+
+                 RemotePort == "53",
+
+                 "DNS",                      
+
+                 RemotePort == "80",
+
+                 "HTTP",
+
+                 RemotePort == "443",
+
+                 "HTTPS",
+
+                 RemotePort == "8080",
+
+                 "HTTP",
+
+                 RemotePort == "8443",
+
+                 "HTTP",
+
+                 RemotePort == "137",
+
+                 "NetBIOS",
+
+                 RemotePort == "138",
+
+                 "NetBIOS",
+
+                 RemotePort == "139",
+
+                 "NetBIOS",
+
+                 RemotePort == "3389",
+
+                 "RDP",                      
+
+                 RemotePort == "445",
+
+                 "SMB",
+
+                 RemotePort == "69",
+
+                 "TFTP",
+
+                 RemotePort == "",
+
+                 "Google it",
+
+                 RemotePort
+
+             ),
+
+    geo_ip = coalesce(geo_ip4, geo_ip6),   //represent geo_ip4/geo_ip6 as 1 field
+
+    RemoteAddressIP = coalesce(RemoteAddressIP4, RemoteAddressIP6) //represent ip4/ip6 as 1 field
+
+| project
+
+    cid,
+
+    ComputerName,
+
+    OU,
+
+    SensorGroupingTags,
+
+    event_platform,
+
+    TimeGenerated,
+
+    ContextBaseFileName,
+
+    LocalAddressIP4,
+
+    RemoteAddressIP,
+
+    RemotePort,
+
+    IPProtocolType,
+
+    ConnectionDirection,
+
+    IP_Country=tostring(geo_ip4.country), //move into the new array geo_ip and extract country
+
+    IP_City=tostring(geo_ip4.city) // //move into the new array geo_ip and extract city
+
+| summarize
+
+    count(ContextBaseFileName),
+
+    computer=make_set(ComputerName, 15), //only pull back 15 computers
+
+    os=make_set(event_platform),
+
+    count(ComputerName),
+
+    RemoteAddressIP=make_set(RemoteAddressIP), //polish column name
+
+    RemotePort=make_set(RemotePort),  //polish column name
+
+    IP_ProtocolType=make_set(IPProtocolType), //polish column name
+
+    IP_Country=make_set(IP_Country), //polish column name
+
+    IP_City=make_set(IP_City), //polish column name
+
+    count(RemoteAddressIP)
+
+    by cid, ConnectionDirection, OU, SensorGroupingTags, ContextBaseFileName //group by tenant, direction, ou, sensor, filename
+
+ 
+
