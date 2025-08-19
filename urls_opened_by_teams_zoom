@@ -1,0 +1,34 @@
+CrowdStrikeFDR
+| where TimeGenerated > ago(3d)
+| where ParentBaseFileName == "Zoom.exe" or ParentBaseFileName == "ms-teams.exe"
+| where event_simpleName == "ProcessRollup2"
+| where CommandLine contains "http"
+| where CommandLine !contains "corp.zoom.us"
+| where CommandLine !contains "zoom.us"
+| where CommandLine !contains "support.zoom.com"
+| where CommandLine !contains "corp.service-now.com"
+| where CommandLine !contains "corp.sharepoint.com"
+| where CommandLine !contains "corp-my.sharepoint.com"
+| where CommandLine !contains "corp.com"
+| where CommandLine !contains "youtube.com"
+| where CommandLine !contains "youtu.be"
+| where CommandLine !contains "copilot.cloud.microsoft"
+| where CommandLine !contains "teams.microsoft.com"
+| where CommandLine !contains "m365.cloud.microsoft"
+| where CommandLine !contains "esi.microsoft.com"
+| where CommandLine !contains "learn.microsoft.com"
+| where CommandLine !contains "linkedin.com"
+| where CommandLine !contains "github.com"
+| project
+    TimeGenerated,
+    ComputerName,
+    event_simpleName,
+    FileName,
+    ImageFileName,
+    ParentBaseFileName,
+    url = extract ("(https:|http:).*", 0, CommandLine),
+    CommandLine,
+    record
+| summarize  count(url), make_set(CommandLine) by ParentBaseFileName, FileName, url
+| sort by count_url desc
+ 
