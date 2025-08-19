@@ -1,0 +1,57 @@
+
+// Suspicious Commands Executed Via Run Utility GUI
+CrowdStrikeFDR
+| where TimeGenerated > ago(60d)
+| where event_simpleName == 'RegSystemConfigValueUpdate'  
+| where RegObjectName contains \\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\RunMRU
+| where RegStringValue contains ".exe"
+    or RegStringValue contains ".dll"
+    or RegStringValue contains ".sys"   
+    or RegStringValue contains "hidden"
+    or RegStringValue contains "-h" //hidden
+    or RegStringValue contains "-e" //encoded
+    or RegStringValue contains "iex"
+    or RegStringValue contains "iwr"
+    or RegStringValue contains "powershell"
+    or RegStringValue contains "cmd"
+    or RegStringValue contains "excel"
+    or RegStringValue contains "word"
+    or RegStringValue contains "run"
+    or RegStringValue contains "run as"
+    or RegStringValue contains "startup"
+    or RegStringValue contains "whoami"
+    or RegStringValue contains "nslookup"
+    or RegStringValue contains "ping"
+    or RegStringValue contains "http"
+    or RegStringValue contains "ftp"
+| where RegStringValue != "cmd\\1"
+| where RegStringValue != "CMD\\1"
+| where RegStringValue != "cmd.exe\\1"
+| where RegStringValue != "gpupdate /run\\1"
+| where RegStringValue != "shell:startup\\1"
+| where RegStringValue != "Shell:startup\\1"
+| where RegStringValue != "SHELL:STARTUP\\1"
+| where RegStringValue != "excel\\1"
+| where RegStringValue != "EXCEL\\1"
+| where RegStringValue != "winword\\1"
+| where RegStringValue != "winword /r\\1"
+| where RegStringValue != "microsoft word\\1"
+| where RegStringValue != "WINWORD\\1"
+| where RegStringValue != "onenote.exe\\1"
+| where RegStringValue != "C:\\Program Files\\Microsoft OneDrive\\onedrive.exe /reset\\1"
+| where RegStringValue != "excel /safe\\1"
+| where RegStringValue != "wordpad\\1"
+| where RegStringValue != "outlook.exe /safe\\1"
+| where RegStringValue != "outlook.exe\\1"
+| where RegStringValue != "outlook.exe /cleanreminders\\1"
+| where RegStringValue != "Outlook.exe /cleanrulesin\\1"  
+| where RegStringValue != "outlook.exe /resetfolders\\1"
+| where RegStringValue != "Outlook.exe /safe\\1"
+| where RegStringValue != "outlook.exe /cleanviews\\1"  
+| summarize
+count(RegStringValue),
+make_set(RegObjectName), make_set(ComputerName),
+make_set(SensorGroupingTags),
+c=count()
+by tostring(RegStringValue)
+ 
