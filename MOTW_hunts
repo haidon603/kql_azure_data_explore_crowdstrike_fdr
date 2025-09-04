@@ -1,0 +1,151 @@
+//Downloads from URLs containing IPs instead of a domain name. Malware often uses direct IPs, as this can bypass domain reputation and DNS monitoring
+database('MyDB').Mytable
+| where TimeGenerated > ago(60d)
+    and event_simpleName == 'MotwWritten' //filter for Mark of the Web zone identifier events
+| extend HostUrl_IPaddr = extract_all(@"https://|http://((?:[0-9]{1,3}\.){3}[0-9]{1,3})", HostUrl)[0] //extract IP from url case in-sensitive
+| where not(ipv4_is_private(tostring((HostUrl_IPaddr)))) //exclude rfc1918
+| where HostUrl_IPaddr != "127.0.0.1" //exclude local host
+| extend geo_ip4=geo_info_from_ip_address(tostring(HostUrl_IPaddr)) //enrich extracted IP with geolocation
+| where FileName != "0" //exclude uninteresting files
+| where FileName != "RELEASES.txt"
+| where FileName != "f.txt"
+| extend ZoneIdentifier = case(
+                              ZoneIdentifier == "0", //enrich with data dictionary zone values
+                              "LOCAL_MACHINE",
+                              ZoneIdentifier == "1",
+                              "INTRANET",
+                              ZoneIdentifier == "2",
+                              "TRUSTED_SITES",
+                              ZoneIdentifier == "3",
+                              "INTERNET",
+                              ZoneIdentifier == "4",
+                              "RESTRICTED_SITES",
+                              ZoneIdentifier
+                          )
+| project
+    TimeGenerated,
+    ComputerName,
+    ZoneIdentifier,
+    FileName,
+    HostUrl_IPaddr,
+    IP_Country=tostring(geo_ip4.country),
+    //    IP_City=tostring(geo_ip4.city),
+    HostUrl,
+    ReferrerUrl,
+    TargetFileName,
+    FileIdentifier,
+    OU
+| summarize
+    count(FileName),
+    make_set(IP_Country),
+    make_set(HostUrl_IPaddr),
+    make_set(HostUrl),
+    make_set(ReferrerUrl),
+    make_set(TargetFileName),
+    make_set(ComputerName, 10),
+    make_set(OU)
+    by ZoneIdentifier, FileName
+| sort by count_FileName desc
+
+////////////////////////////////////////////////////////////////////////////////////
+//Downloads from sus TLDs. These TDLs are often cheap and easy to register making them ideal for campaigns
+ 
+database('MyDB').Mytable
+| where TimeGenerated > ago(60d)
+    and event_simpleName == 'MotwWritten' //filter for Mark of the Web zone identifier events
+        and isnotempty(HostUrl)
+| extend TLD = extract("(?<TLD>\\.\\w+?)(?:$|\\/)", 1, HostUrl),HostUrl
+| where TLD  has_any(".band",".club'",".cn",".company",".dad",".date",".email",".esq",".foo",".ir",".life",".mov",".nexus",".phd",".pizza",".prof",".ru",".services",
+".tk",".top",".tv",".xyz",".zip",".zzz",".icu",".ga",".cf",".ml",".pw",".work",".info",".stream",".cyou",".monster",".bar",".io",".dev",".page",".gd",".gy",".ms",
+".zm",".ug",".sn",".do",".bd",".np",".sh",".ng",".id",".sa")
+| where FileName != "0" //exclude uninteresting files
+| where HostUrl != "about:internet"
+| where FileName != "RELEASES.txt"
+| where FileName != "f.txt"
+    and ReferrerUrl !startswith "C:" and HostUrl !startswith "C:"
+    and ReferrerUrl !startswith "file:" and HostUrl !startswith "file:"
+    and ReferrerUrl !startswith "about:" and HostUrl !startswith "about:"
+| extend ZoneIdentifier = case(
+                              ZoneIdentifier == "0",
+                              "LOCAL_MACHINE",
+                              ZoneIdentifier == "1",
+                              "INTRANET",
+                              ZoneIdentifier == "2",
+                              "TRUSTED_SITES",
+                              ZoneIdentifier == "3",
+                              "INTERNET",
+                              ZoneIdentifier == "4",
+                              "RESTRICTED_SITES",
+                              ZoneIdentifier
+                          )
+| project
+    TimeGenerated,
+    ComputerName,TLD,
+    ZoneIdentifier,
+    FileName,
+    HostUrl,
+    ReferrerUrl,
+    TargetFileName,
+    FileIdentifier,
+    OU
+| summarize
+    count(FileName), make_set(TLD),
+    make_set(HostUrl),
+    make_set(ReferrerUrl),
+    make_set(TargetFileName),
+    make_set(ComputerName, 10),
+    make_set(OU)
+    by ZoneIdentifier, FileName
+| sort by count_FileName desc
+
+////////////////////////////////////////////////////////////////////////////////////
+//Downloads from file storage sites
+database('MyDB').Mytable
+| where TimeGenerated > ago(60d)
+    and event_simpleName == 'MotwWritten' //filter for Mark of the Web zone identifier events
+        and isnotempty(HostUrl)
+| where HostUrl has_any("dropbox.com", "drive.google.com", "onedrive.live.com", "s3.amazonaws.com", "pastebin.com", "mega.nz",
+"mediafire.com", "github.com", "bitbucket.org", "docs.google.com", "wetransfer.com", "box.com", "disk.yandex.com", "pcloud.com",
+"4shared.com", "sendspace.com", "zippyshare.com")
+| where FileName != "0" //exclude uninteresting files
+| where HostUrl != "about:internet"
+| where FileName != "RELEASES.txt"
+| where FileName != "f.txt"
+    and ReferrerUrl !startswith "C:" and HostUrl !startswith "C:"
+    and ReferrerUrl !startswith "file:" and HostUrl !startswith "file:"
+    and ReferrerUrl !startswith "about:" and HostUrl !startswith "about:"
+| extend ZoneIdentifier = case(
+                              ZoneIdentifier == "0",
+                              "LOCAL_MACHINE",
+                              ZoneIdentifier == "1",
+                              "INTRANET",
+                              ZoneIdentifier == "2",
+                              "TRUSTED_SITES",
+                              ZoneIdentifier == "3",
+                              "INTERNET",
+                              ZoneIdentifier == "4",
+                              "RESTRICTED_SITES",
+                              ZoneIdentifier
+                          )
+| project
+    TimeGenerated,
+    ComputerName,
+    ZoneIdentifier,
+    FileName,
+    HostUrl,
+    ReferrerUrl,
+    TargetFileName,
+    FileIdentifier,
+    OU
+| summarize
+    count(FileName),
+    make_set(HostUrl),
+    make_set(ReferrerUrl),
+    make_set(TargetFileName),
+    make_set(ComputerName, 10),
+    make_set(OU)
+    by ZoneIdentifier, FileName
+| sort by count_FileName desc
+ 
+
+ 
