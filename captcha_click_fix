@@ -1,0 +1,10 @@
+let search_t = '/captcha/?';
+myProxy
+| where TimeGenerated > ago(14d)
+| where ( url contains (search_t)) //or hostname contains (domain_t)) referer contains (search_t) or // referer will usually be the infected site
+| where filetype == "JavaScript (js, jse)"
+|extend captcha = extract("(.{1,10}(captcha/).{1,10})",1,url)
+| where isnotempty(captcha)
+| where captcha !has "/ajax/"
+| project TimeGenerated, context=strcat("host: ",devicehostname," owner: ",deviceowner," ip: ",src, " role: ",role), action,policy,referer, hostname,reqmethod,captcha, url,filename, filetype,fileclass, contenttype, useragent,appname, appclass, keyprotectiontype, urlsupercategory, record
+ 
