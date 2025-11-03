@@ -1,0 +1,51 @@
+//service started/created
+CrowdStrike
+| where ingestion_time() > ago(1d)
+| where SensorGroupingTags == "prod"
+| where ComputerName != "mysccmhost1"
+| where ComputerName != "mysccmhost2"
+| where (event_simpleName == 'CreateService' and (ServiceDisplayName == "PSEXESVC" or ServiceImagePath == "%SystemRoot%\\PSEXESVC.exe"))
+    or (event_simpleName == "AsepValueUpdate" and (
+    RegStringValue == "%SystemRoot%\\PSEXESVC.exe"
+    or RegObjectName == "\\REGISTRY\\MACHINE\\SYSTEM\\ControlSet001\\Services\\PSEXESVC"))
+| summarize
+    count(ComputerName),
+    make_set(UserName),
+    make_set(ContextBaseFileName),
+    make_set(ServiceDisplayName),
+    make_set(ServiceImagePath),
+    make_set(RegObjectName),
+    make_set(RegStringValue),
+    make_set(event_simpleName),
+    make_set(record, 5),
+    make_set(TimeGenerated, 5)
+    by OU, SensorGroupingTags, ComputerName
+| sort by count_ComputerName asc
+ 
+ 
+//PsExec Args
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where SensorGroupingTags == "prod"
+| where ComputerName != "mysccmhost1"
+| where ComputerName != "mysccmhost2"
+| where  
+    (event_simpleName == "ProcessRollup2" and ParentBaseFileName == "PSEXESVC.exe")
+    or (event_simpleName == "ProcessRollup2" and (FileName contains "PsExec.exe" or FileName == "PsExec64.exe"))
+| where CommandLine !contains "print.vbs"
+| where CommandLine !contains "remediation.ps1"
+| summarize
+    count(ComputerName),
+    make_set(UserName),
+    make_set(CommandLine),
+    count(CommandLine),
+    dcount(CommandLine),
+    make_set(FileName),
+    make_set(ParentBaseFileName),
+    make_set(GrandParentBaseFileName),
+    make_set(event_simpleName),
+    make_set(record, 5),
+    make_set(TimeGenerated, 5)
+    by OU, SensorGroupingTags, ComputerName
+ 
+ 
