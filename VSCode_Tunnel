@@ -1,0 +1,183 @@
+//VS Code Installed from unternet vs corp packaged site or the software center. . . is the user in a Dev role? 
+//haidon test'VSCodeUserSetup-x64-1.107.1.exe'; 'code.visualstudio.com/Download';
+Proxy
+| where ingestion_time() > ago(7d)
+| where hostname == "vscode.download.prss.microsoft.com" or hostname == "code.visualstudio.com/"
+| where action == 'Allowed'
+| where fileclass == "Executables Files" or filetype == "Windows Executable (exe, exe64, scr)" or
+filename endswith '.exe' or filename endswith ".zip" or filename endswith ".gz"
+| project TimeGenerated, context=strcat("host: ",devicehostname," owner: ",deviceowner," ip: ",src, " role: ",record.department),
+ action,policy,referer, hostname,reqmethod, url,filename, filetype,fileclass, contenttype, useragent,appname, appclass, keyprotectiontype, urlsupercategory, record
+| summarize  make_set(filename), make_set(filetype), make_set(url),make_set(referer), make_set(useragent), make_set(TimeGenerated,2) by context
+ 
+ 
+
+//To optimize searches join with contextual data for role/environment/time  
+//DNS requests by VS Code Tunnel EXE (Remoting) and by user role
+////https://code.visualstudio.com/docs/remote/tunnels
+//https://cyble.com/blog/silent-intrusion-unraveling-the-sophisticated-attack-leveraging-vs-code-for-unauthorized-access/
+CrowdStrike
+| where ingestion_time() > ago(7d)
+| where event_simpleName == 'UserLogon'
+| project
+    UserName = trim("a|b|$", UserName),
+    ComputerName=ClientComputerName
+| join kind = inner
+    (
+    database('Endpoint').CrowdStrike
+    | where ingestion_time() > ago(7d)
+    | where event_simpleName startswith "DNS"
+    | where ContextBaseFileName == "code-tunnel.exe"
+    | project DomainName, ContextBaseFileName, ComputerName, UserName, record)
+    on ComputerName
+| project DomainName, ContextBaseFileName, ComputerName, UserName
+| join kind = inner  
+    (
+    database('Identity').AD
+    | where ingestion_time() > ago(7d)
+    | project
+        TimeGenerated,
+        tostring(UserName=after.['sAMAccountName']),
+        after.['whenCreated'],
+        title=after.['title'],
+        division=after.['division'])
+    on UserName
+| project
+    ContextBaseFileName,
+    DomainName,
+    ComputerName,
+    ['title'],
+    UserName,
+    after_whenCreated,
+    division,
+    TimeGenerated
+| summarize
+    ComputerName=make_set(ComputerName),
+    ContextBaseFileName=make_set(ContextBaseFileName),
+    DomainName=make_set(DomainName),
+    TimeGenerated=make_set(TimeGenerated, 10),
+    make_set(after_whenCreated)
+    by UserName, tostring(['title']), tostring(division)
+ 
+//Potential VSCode Tunnel
+//https://jsac.jpcert.or.jp/archive/2024/pdf/JSAC2024_2_3_sasada_hazuru_en.pdf
+//vscode.exe > node.exe > pwsh.exe
+CrowdStrike
+| where ingestion_time() > ago(7d)
+| where event_simpleName == "ProcessRollup2"
+| where ParentBaseFileName =~  "node.exe" or GrandParentBaseFileName == "node.exe"
+| where FileName == 'pwsh.exe' or ParentBaseFileName == 'pwsh.exe'
+| summarize count(FileName), make_set(ImageFileName,5),make_set(ComputerName, 10), make_set(SensorGroupingTags), make_set(TimeGenerated,5) by ParentBaseFileName, FileName
+| sort by count_FileName asc
+ 
+//DNS Requests from VSCode
+//Dev Tunnels use below hosts
+//github.com and login.microsoftonline.com
+//Dev Tunnels
+//global.rel.tunnels.api.visualstudio.com
+//[clusterId].rel.tunnels.api.visualstudio.com
+//[clusterId]-data.rel.tunnels.api.visualstudio.com
+//*.[clusterId].devtunnels.ms
+//*.devtunnels.ms
+//[clusterId] list is available at https://global.rel.tunnels.api.visualstudio.com/api/v1/clusters
+CrowdStrike
+| where ingestion_time() > ago(7d)
+| where event_simpleName startswith "DNS"
+| where ContextBaseFileName == "Code.exe"
+| summarize ComputerNames=make_set(ComputerName) by tostring(DomainName), ContextBaseFileName
+| extend HostCount = array_length(ComputerNames)
+| sort by tolong(HostCount) desc
+ 
+//Interesting executables spawned by VScode
+CrowdStrike
+| where ingestion_time() > ago(7d)
+| where event_simpleName == "ProcessRollup2"
+| where ParentBaseFileName =~  "code.exe"
+| where ImageFileName matches regex '\\\\Device\\\\HarddiskVolume\\d\\\\Users\\\\' and ImageFileName has 'vscode'
+| summarize count(FileName), make_set(ImageFileName,5), make_set(TimeGenerated,5) by ParentBaseFileName, FileName
+| sort by count_FileName asc
+ 
+//Potential spin up of tunnel
+//https://cyble.com/blog/silent-intrusion-unraveling-the-sophisticated-attack-leveraging-vs-code-for-unauthorized-access/
+// | search 'code.exe –locale en-US tunnel –accept-server-license-terms –name'
+CrowdStrike
+| where ingestion_time() > ago(7d)
+| where event_simpleName startswith "Script"
+    or event_simpleName == "CommandHistory"
+    or event_simpleName == "NewScriptWritten"
+ | search 'code.exe' and 'tunnel'
+ 
+//Potential Enumeration for the presence of VSCode
+//https://cyble.com/blog/silent-intrusion-unraveling-the-sophisticated-attack-leveraging-vs-code-for-unauthorized-access/
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where event_simpleName startswith "Script"
+    or event_simpleName == "CommandHistory"
+    or event_simpleName == "NewScriptWritten"
+| search '%LOCALAPPDATA%\\Microsoft\\VScode'  or ('tasklist' and 'code.exe') //Actors will see if directory exists or ran tasklist and look for code.exe in output
+| project
+    TimeGenerated,
+    ComputerName,
+    ScriptContentName,
+    Process=FileName,
+    ScriptContent,
+    CommandLine,
+    CommandHistory_split =  split(CommandHistory, "¶"),
+    record,
+    event_simpleName
+ 
+//VSCode installed via CLI
+//Haidon test curl -Lk 'https://code.visualstudio.com/sha/download?build=stable&os=cli-alpine-x64' --output vscode_cli.tar.gz
+CrowdStrike
+| where ingestion_time() > ago(7d)
+| where event_simpleName startswith "Script" or
+    event_simpleName == "CommandHistory" or event_simpleName == "NewScriptWritten"
+| search 'code.visualstudio.com/sha/download' or 'vscode_cli.tar.gz'
+| project
+    TimeGenerated,
+    ComputerName,
+    ScriptContentName,
+    Process=FileName,
+    ScriptContent,
+    CommandLine,
+    CommandHistory,
+    record,
+    event_simpleName
+ 
+//VSCode observed in non standard directory
+CrowdStrike
+| where ingestion_time() > ago(7d)
+| where event_platform == 'Win'
+| where TargetFileName matches regex '\\\\Device\\\\HarddiskVolume\\d\\\\Users\\\\\\w+\\\\Downloads\\\\'
+| where FileName startswith "VSCode"  // my test "VSCode-win32-x64-1.108.2.zip"
+| extend UserName = extract("Users\\\\(\\w+)\\\\", 1, TargetFileName) //extract and make field called 'UserName' to join with AD field 'UserName'
+| project
+    TimeGenerated,
+    event_simpleName,
+    UserName,
+    FileName,
+    TargetFileName,
+    ComputerName,
+    record
+| join kind = inner  
+    (
+    database('Identity').AD
+    | where ingestion_time() > ago(7d)
+    | project
+        TimeGenerated,
+        tostring(UserName=after.['sAMAccountName']),
+        after.['whenCreated'],
+        title=after.['title'],
+        division=after.['division'],
+        after.['department'])
+    on UserName
+| summarize
+    make_set(tostring(['title'])),
+    make_set(tostring(division)),
+    make_set(ComputerName),
+    make_set(FileName),
+    make_set(TargetFileName),
+    make_set(TimeGenerated, 10),
+    make_set(after_whenCreated)
+    by UserName
+ 
