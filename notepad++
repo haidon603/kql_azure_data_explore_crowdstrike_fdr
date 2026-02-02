@@ -1,0 +1,53 @@
+//https://doublepulsar.com/small-numbers-of-notepad-users-reporting-security-woes-371d7a3fd2d9
+ 
+//Autoupdate executions. What is it spawning and what flags are seen? Is it spawning anything with silent install?
+//AutoUpdater.exe — which isn’t part of Notepad++, Notepad++ doesn’t use that filename at all — is executed with the parameter /closeRunningNpp, which is called by the legit Notepad++ updater process — essentially, something else is in the update chain in this example. The cause isn’t known in that case but it may be related to this blog.
+CrowdStrike
+| where TimeGenerated > ago(60d)
+| where event_simpleName == "ProcessRollup2"
+| where ImageFileName matches regex "\\\\Device\\\\HarddiskVolume\\d\\\\Users\\\\\\w+\\\\(update|AutoUpdater)\\.exe"
+| summarize count(), make_set(ParentBaseFileName), make_set(TimeGenerated, 5)  by ImageFileName
+ 
+//GUP making network requests for sites other than notepad-plus-plus.org, github.com and release-assets.githubusercontent.com
+//Can also use proxy and look for curl useragent
+CrowdStrike
+| where TimeGenerated > ago(60d)
+| where event_simpleName == "DnsRequest"
+| where ContextBaseFileName == "GUP.exe"
+| summarize c=count(), make_set(TimeGenerated, 5)  by ContextBaseFileName, DomainName
+ 
+//GUP process spawn. It should only spawn explorer.exe, and npp* themed Notepad++ installers.
+CrowdStrike
+| where TimeGenerated > ago(60d)
+| where event_simpleName == "ProcessRollup2"
+| where  ParentBaseFileName endswith "GUP.exe"
+| where not (ImageFileName  matches regex "\\\\Device\\\\HarddiskVolume\\d\\\\Windows\\\\explorer.exe")
+| summarize c=count(), make_set(TimeGenerated, 5)   by ParentBaseFileName, ImageFileName
+| sort by c  asc
+ 
+//Files named update.exe or AutoUpdater.exe in the user's TEMP folder, where gup.exe has written and/or executed them.
+//Can shorten search by making update.exe and autoupdate.exe positive matches e.g FileName == 'update.exe'
+CrowdStrike
+| where TimeGenerated > ago(60d)
+| where event_platform == 'Win'
+| where TargetFileName matches regex '\\\\Device\\\\HarddiskVolume\\d\\\\Users\\\\\\w+\\\\AppData\\\\Local\\\\Temp'
+| where TargetFileName endswith 'update.exe' or TargetFileName endswith "AutoUpdater.exe"
+| where FileName != 'CopilotUpdate.exe'
+| where FileName != "mybenignUpdate.exe"
+| project-reorder TimeGenerated,ContextBaseFileName, TargetFileName, FileName
+ 
+//curl calling out to temp[.]sh for recon and/or vulnerable update
+//GUP sends the version in use to https://notepad-plus-plus.org/update/getDownloadUrl.php, which in turn provides a file called gup.xml, which contains a download URL for the update.
+//The file is grabbed, saved in %TEMP%, and then executed.
+CrowdStrike
+| where TimeGenerated > ago(60d)
+| where CommandLine contains "temp.sh" or CommandLine contains "notepad-plus-plus.org"
+ 
+//curl web requests //good to baseline in general
+CrowdStrike
+| where TimeGenerated > ago(60d)
+| where CommandLine startswith "curl"
+| extend Extracted_url = extract("(https?:\\/\\/[^\\/]+\\/([a-zA-Z0-9\\.\\-]+\\/?)*)", 1, CommandLine)
+| summarize make_set(Extracted_url), count(Extracted_url), make_set(TimeGenerated, 5)   by CommandLine
+| sort by count_Extracted_url desc
+ 
