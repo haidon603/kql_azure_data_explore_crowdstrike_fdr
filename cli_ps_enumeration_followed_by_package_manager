@@ -1,0 +1,52 @@
+//queries CLI events containing recon AND install commands >  joins them to username and user role to contextualize 
+//actors enumerate PowerShell versions for post-exploitation
+    database('Endpoint').CrowdStrikeFDR //Associate Users to workstations based on Logon logs, as CLI events do not possess a username
+| where ingestion_time() > ago(30d)
+| where event_simpleName == 'UserLogon'
+| project    UserName = trim("a|b|c$", UserName), //remove suffixes/prefixes as appropriate to match ADTable
+ComputerName=ClientComputerName
+| join kind=inner
+    (
+    database('Endpoint').CrowdStrikeFDR  //Retrieve enumeration of PS version followed by a package manager or web request
+    | where ingestion_time() > ago(30d)
+    | where event_simpleName == "CommandHistory"
+    | where CommandHistory has_any ("Get-ExecutionPolicy", "$PSVersionTable") and CommandHistory has_any ("install-module", "get-module", "npm", "java", "winget", "install", "curl", "wget")
+ 
+    )
+    on ComputerName
+|project
+    UserName,
+    ComputerName,
+    event_simpleName,
+    CommandHistory_split =  split(CommandHistory, "¶")
+ 
+| join kind = inner  
+    (
+    database('Identity').ADTable //Enrich username with AD data to understand context and role prevalence
+    | where TimeGenerated > ago(24h) //Edit as needed to reflect your organization's Identity data freshness
+    | where message == 'sync-update'   //Sync events only but modify as appropriate
+    | project
+        TimeGenerated,
+        tostring(UserName=after.['sAMAccountName']),
+        after,
+        after.['mail'],
+        after.['whenCreated'],    
+        title=after.['title'],
+        division=after.['division'],
+        after.['department'],
+        after.['lockOut'],
+        record)
+//tuning considerations    // | where division != 'Digital' and division != 'Technology'
+    on UserName
+//uncomment for 1:1 table | project ComputerName, event_simpleName, DeviceManufacturer, DeviceProduct, DevicePropertyClassName, DevicePropertyDeviceDescription, DevicePropertyManufacturer, DevicePropertyFriendlyName, title=tostring(['title']), tostring(division), UserName, whenCreated=tostring(after_whenCreated), TimeGenerated,   record
+| summarize
+    make_set(ComputerName),
+    make_set(DeviceManufacturer),
+    make_set(DeviceProduct),
+    make_set(DevicePropertyDeviceDescription),
+    make_set(DevicePropertyManufacturer),
+    make_set(record, 5)
+    by UserName, ['title'], division, whenCreated
+ 
+ 
+ 
