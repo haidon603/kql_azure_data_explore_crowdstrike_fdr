@@ -1,0 +1,22 @@
+Kusto queries and dashboard developed to help investigate activities using CrowdStrike FDR Logs
+
+
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/1-landing-page.png)
+
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/2.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/3.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/4.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/5.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/6.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/7.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/8.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/9.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/10.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/11.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/12.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/13.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/14.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/15.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/16.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/17.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/18.png)
