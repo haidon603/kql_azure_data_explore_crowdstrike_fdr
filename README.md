@@ -3,6 +3,9 @@ Kusto queries and dashboard developed to help investigate activities using Crowd
 
 ![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/1-landing-page.png)
 
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/27.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/26.png)
+
 ![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/2.png)
 ![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/3.png)
 ![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/4.png)
