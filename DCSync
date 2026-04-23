@@ -1,0 +1,69 @@
+ 
+//IDP uses network traffic while the event DCSyncAttempted uses ETW. This is why IDP DCSync detections do not have a corresponding DCSyncAttempted log in FDR.
+//To investigate IDP DCSync detections (or examine DC Syncing in general from non DC sources), you can search for ActiveDirectoryIncomingDceRpcRequest  RpcOpClassification == "1",
+ 
+//DCSyncAttempted - Directory Services changes were replicated. If the source host is not a Domain Controller, this could represent malicious activity.
+CrowdStrikeFDR
+| where TimeGenerated >= ago(1d)
+| where event_simpleName == 'DCSyncAttempted'
+| project TimeGenerated, ComputerName, OU, ClientComputerName, UserName, SubjectDomainNameEtw, MachineDomain, cid, record
+ 
+//ActiveDirectoryIncomingDceRpcRequest - Indicates that the Domain Controller must handle one or more incoming DCE/RPC requests from an account on an endpoint.
+CrowdStrikeFDR
+| where TimeGenerated >= ago(1d)
+| where event_simpleName == 'ActiveDirectoryIncomingDceRpcRequest'
+| extend RpcOpClassification = case(
+                                   RpcOpClassification == "1",
+                                   "DC_SYNC",
+                                   RpcOpClassification == "2",
+                                   "SPN_MODIFICATION",
+                                   RpcOpClassification == "3",
+                                   "REPLICATION_SERVER_REGISTRATION",
+                                   RpcOpClassification == "4",
+                                   "SCHEDULED_TASK_CREATION",
+                                   RpcOpClassification == "5",
+                                   "REMOTE_SERVICE_INTERFACE",
+                                   RpcOpClassification == "6",
+                                   "NET_SESSION_ENUMERATION",
+                                   RpcOpClassification == "7",
+                                   "SAMR_INTERFACE",
+                                   RpcOpClassification == "8",
+                                   "DCOM_INTERFACE",
+                                   RpcOpClassification == "9",
+                                   "TASK_SCHDULE_INTERFACE",
+                                   RpcOpClassification == "10",
+                                   "IREMOTE_WINSPOOL_INTERFACE",
+                                   RpcOpClassification == "11",
+                                   "ZEROLOGON_EXPLOIT",
+                                   RpcOpClassification == "12",
+                                   "CREATE_SERVICE",
+                                   RpcOpClassification == "13",
+                                   "LSAD_INTERFACE",
+                                   RpcOpClassification == "14",
+                                   "SCMR_INTERFACE",
+                                   RpcOpClassification == "15",
+                                   "WMI_INTERFACE",
+                                   RpcOpClassification == "16",
+                                   "RPRN_INTERFACE",
+                                   RpcOpClassification == "17",
+                                   "PAR_INTERFACE",
+                                   RpcOpClassification == "18",
+                                   "DRSR_INTERFACE",
+                                   RpcOpClassification == "19",
+                                   "NRPC_INTERFACE",
+                                   RpcOpClassification == "20",
+                                   "RRP_INTERFACE",
+                                   RpcOpClassification == "21",
+                                   "WKST_INTERFACE",
+                                   RpcOpClassification == "22",
+                                   "SRVS_INTERFACE",
+                                   RpcOpClassification == "23",
+                                   "EFSR_INTERFACE",
+                                   RpcOpClassification == "24",
+                                   "FSRVP_INTERFACE",
+                                   RpcOpClassification == "25",
+                                   "DFSNM_INTERFACE",
+                                   RpcOpClassification
+                               )
+| summarize by ComputerName, SourceEndpointHostName , SourceAccountUserName, RpcOpClassification
+ 
