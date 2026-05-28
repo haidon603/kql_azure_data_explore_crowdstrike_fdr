@@ -1,0 +1,115 @@
+//Execution from removable media, execution from share, data staging, etc.
+//USB drives , External hard drives, Secondary internal drives, Mounted VHDs, Network drives mapped to letters CD/DVD drives
+CrowdStrikeFDR
+| where TimeGenerated > ago(7d)
+| where event_simpleName == "ProcessRollup2"
+| where CommandLine matches regex "\\s[D|E|F||G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|Y]:\\\\" //x and z drive is ej common drive smb
+//| where CommandLine matches regex "\\s[a-zA-Z]:\\\\"
+//| where CommandLine !startswith "\"C:"
+//| where CommandLine !startswith "C:"
+//| search "D:\\"
+| project
+    TimeGenerated,
+    ComputerName,
+    UserName,
+    event_simpleName, CommandLine,FileName,
+    record
+ 
+ 
+//USB Device Connected Enriched with Country Code
+CrowdStrikeFDR
+| where TimeGenerated > ago(7d)
+| where event_simpleName == "DcUsbDeviceConnected" or event_simpleName == "DcUsbDeviceDisconnected"
+| join
+    (
+    CrowdStrikeFDR
+| where TimeGenerated > ago(7d)
+    | where event_simpleName == "DcUsbHIDDescriptor"
+    | project HIDDescriptorCountryCode, ComputerName, DeviceDescriptorSetHash
+    )
+    on DeviceDescriptorSetHash
+| extend
+    HIDDescriptorCountryCode = case(
+                               HIDDescriptorCountryCode1 == "0",
+                               "NOT_SUPPORTED",
+                               HIDDescriptorCountryCode1 == "1",
+                               "ARABIC",
+                               HIDDescriptorCountryCode1 == "2",
+                               "BELGIAN",
+                               HIDDescriptorCountryCode1 == "3",
+                               "CANADIAN_BILINGUAL",
+                               HIDDescriptorCountryCode1 == "4",
+                               "CANADIAN_FRENCH",
+                               HIDDescriptorCountryCode1 == "5",
+                               "CZECH_REPUBLIC",
+                               HIDDescriptorCountryCode1 == "6",
+                               "DANISH",
+                               HIDDescriptorCountryCode1 == "7",
+                               "FINNISH",
+                               HIDDescriptorCountryCode1 == "8",
+                               "FRENCH",
+                               HIDDescriptorCountryCode1 == "9",
+                               "GERMAN",
+                               HIDDescriptorCountryCode1 == "10",
+                               "GREEK",
+                               HIDDescriptorCountryCode1 == "11",
+                               "HEBREW",
+                               HIDDescriptorCountryCode1 == "12",
+                               "HUNGARY",
+                               HIDDescriptorCountryCode1 == "13",
+                               "INTERNATIONAL_ISO",
+                               HIDDescriptorCountryCode1 == "14",
+                               "ITALIAN",
+                               HIDDescriptorCountryCode1 == "15",
+                               "JAPAN_KATAKANA",
+                               HIDDescriptorCountryCode1 == "16",
+                               "KOREAN",
+                               HIDDescriptorCountryCode1 == "17",
+                               "LATIN_AMERICAN",
+                               HIDDescriptorCountryCode1 == "18",
+                               "NETHERLANDS_DUTCH",
+                               HIDDescriptorCountryCode1 == "19",
+                               "NORWEGIAN",
+                               HIDDescriptorCountryCode1 == "20",
+                               "PERSIAN_FARSI",
+                               HIDDescriptorCountryCode1 == "21",
+                               "POLAND",
+                               HIDDescriptorCountryCode1 == "22",
+                               "PORTUGUESE",
+                               HIDDescriptorCountryCode1 == "23",
+                               "RUSSIA",
+                               HIDDescriptorCountryCode1 == "24",
+                               "SLOVAKIA",
+                               HIDDescriptorCountryCode1 == "25",
+                               "SPANISH",
+                               HIDDescriptorCountryCode1 == "26",
+                               "SWEDISH",
+                               HIDDescriptorCountryCode1 == "27",
+                               "SWISS_FRENCH",
+                               HIDDescriptorCountryCode1 == "28",
+                               "SWISS_GERMAN",
+                               HIDDescriptorCountryCode1 == "29",
+                               "SWITZERLAND",
+                               HIDDescriptorCountryCode1 == "30",
+                               "TAIWAN",
+                               HIDDescriptorCountryCode1 == "31",
+                               "TURKISH_Q",
+                               HIDDescriptorCountryCode1 == "32",
+                               "UK",
+                               HIDDescriptorCountryCode1 == "33",
+                               "US",
+                               HIDDescriptorCountryCode1 == "34",
+                               "YUGOSLAVIA",
+                               HIDDescriptorCountryCode1 == "35",
+                               "TURKISH_F",
+                               HIDDescriptorCountryCode1)
+| project ComputerName, DeviceDescriptorSetHash,HIDDescriptorCountryCode,
+    DeviceManufacturer,
+    DeviceProduct,
+    DevicePropertyClassName,
+    DevicePropertyDeviceDescription,
+    DevicePropertyManufacturer,
+    DevicePropertyFriendlyName,
+    LocalAddressIP4,
+    record
+ 
