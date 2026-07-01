@@ -1,0 +1,62 @@
+//Hunt: Identify new programs that have executed in Prod that have NOT been observed executing in the last 30 days but suddenly executed in the last 1 day
+//First, query and store results that have been executed in the last 30 days
+.set stored_query_result 30_Day_ProcessRollup2_Events <|
+CrowdStrikeFDR
+| where ingestion_time() > ago(30d)
+| where cid == "myprodcid"
+| where  event_simpleName == "ProcessRollup2"
+| summarize by FileName, SHA256HashData
+//Second, query recent program executions and join with baseline
+//Based on efficiency testing, only tune files out in the follow up query
+let 30_Day_ProcessRollup2_Events = stored_query_result("30_Day_ProcessRollup2_Events");
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where cid == "myprodcid"
+| where  event_simpleName == "ProcessRollup2"
+| where ParentBaseFileName != 'wuaucltcore.exe' //Windows Update AutoUpdate Core
+| where WindowTitle !endswith "HPDCSetup.exe" //HP Display Control Service
+| where ParentBaseFileName != "MpCmdRun.exe" //Microsoft Malware Protection Command Line Utility
+| where FileName != "MpDefenderCoreService.exe" // Microsoft Antimalware Core Service
+| where FileName !startswith "MSI"  //Windows Installer cache (by default, c:\windows\installer) is used to store important files for applications that are installed using the MSI Windows Installer.
+//| where FileName != "GoogleUpdate.exe" //Browser Update
+| where ImageFileName !endswith "GoogleUpdate.exe" //Consider RegEx to improve robustness\\\\Device\\\\HarddiskVolume\d\\\\Program Files\s\(x86\)\\\\Google\\\\Update\\\\GoogleUpdate\.exe
+| where FileName != "chrome_crashpad_handler" //Chrome dump files for troubleshooting
+| summarize by FileName, SHA256HashData
+| join kind=leftanti 30_Day_ProcessRollup2_Events on FileName, SHA256HashData
+| sort by FileName asc nulls first;
+
+//Supplemental Info
+
+The Kusto function stored_query_result stores the result of a query for up to 24 hours. Only the user who created the stored query can reference the results in later queries. Stored query results can be useful for baselining or joining distinct datasets together for enrichment.
+
+First, generate the stored query. Columns of the stored query results must match columns present in the second query to complete the join statement. Use a project or eval to rename columns as needed.
+.set stored_query_result StoredQueryResultName <|
+
+Second, write second query and join with the query results using
+let StoredQueryResultName = stored_query_result("StoredQueryResultName");
+Table| where ingestion_time() > ago(1d)
+| summarize by Field1, Field2
+| join kind=leftanti StoredQueryResultName on Field1, Field2
+ 
+Command Guide:
+Command
+Description
+.set stored_query_result StoredQueryResultName <|
+
+Creates a stored query result to store the results of a query on the service for up to 24 hours.
+
+.show stored_query_results
+
+Shows information on active stored queries
+
+stored_query_result("StoredQueryResultName")
+
+Retrieves a stored query result.
+
+.show stored_query_result StoredQueryResultName schema
+
+Shows schema of the stored query result.
+
+.drop stored_query_result command
+
+Deletes active query results (results auto-delete in 24 hours)
