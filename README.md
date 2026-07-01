@@ -1,11 +1,16 @@
+Audit logs from CS Dashboard
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/cs_audit1.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/cs_audit2.png)
+
+Dashboard to search IoCs across all of ADX + Database/Table/Field info  
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/ioc_1.png)
+![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/ioc_2.png)
+
 Kusto queries and dashboard developed to help investigate activities using CrowdStrike FDR Logs
-
-
 ![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/1-landing-page.png)
 
 ![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/27.png)
 ![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/26.png)
-
 ![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/2.png)
 ![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/3.png)
 ![Alt text](https://github.com/haidon603/kql_azure_data_explore_crowdstrike_fdr/blob/main/4.png)
