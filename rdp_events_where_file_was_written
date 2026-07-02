@@ -1,0 +1,22 @@
+//RDP sessions containing the event "A PE file was written and executed from an RDP session."
+let RDP_Host =
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where event_simpleName startswith "UserLogon"
+| where UserName has _user
+| where ComputerName has _host
+| where LogonType == "10"
+| project ComputerName;
+let RDP_Tracking =
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where ComputerName in (RDP_Host)
+| where event_simpleName == "ProcessExecOnRDPFile"
+| project TargetProcessId;
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where ComputerName in (RDP_Host)
+| where UserName has _user
+| where SourceProcessId in (RDP_Tracking) or TargetProcessId in (RDP_Tracking)
+| project aid, ComputerName, event_simpleName, UserName, CommandLine, ParentBaseFileName, ImageFileName, FileName, tostring(TargetProcessId), tostring(SourceProcessId), tostring(RawProcessId), tostring(ParentProcessId)
+| limit 2000
