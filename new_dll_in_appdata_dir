@@ -1,0 +1,5 @@
+CrowdStrikeFDR
+| where TimeGenerated > ago(1d)
+| where FileName endswith ".dll" and event_simpleName  endswith "Written" 
+| where TargetFileName matches regex '\\\\Device\\\\HarddiskVolume\\d\\\\Users\\\\\\w+\\\\AppData\\\\'
+| summarize make_set(TargetFileName,5), make_set(event_platform), make_set(OU), make_set(ComputerName,5), c=count() by FileName | sort by c asc
