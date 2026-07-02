@@ -1,0 +1,8 @@
+//Query to identify the event NamedPipeDetectInfo
+//This could be an indicator of Cobalt Strike's named pipe creation for lateral movement or establishing persistence on a secondary host
+ CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where event_simpleName == "NamedPipeDetectInfo"
+| where not (FileName has_any ("w3wp.exe","wkssvc"))
+| summarize count=count(), make_set(CommandLine), make_set(FileName), make_set(event_simpleName), make_set(ImageFileName), make_set(TargetFileName) by ComputerName
+| project ComputerName, CommandLine=set_CommandLine, FileName=set_FileName,TargetFileName=set_TargetFileName,ImageFileName=set_ImageFileName, event_simpleName=set_event_simpleName
