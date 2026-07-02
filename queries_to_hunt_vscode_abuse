@@ -1,0 +1,129 @@
+//Downloaded VS Code Extensions by Company Name (Publisher) 
+//Unique VS Code Extensions by Company Name
+//DNS requests by VS Code
+//DNS requests by VS Code Tunnel EXE (Remoting)
+
+Downloaded VS Code Extensions by Company Name (Publisher) 
+let _vscode = '';
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where event_simpleName endswith "Written"
+| where ContextBaseFileName == "Code.exe"
+| where TargetFileName has "CachedExtensionVSIXs" and FileName endswith "sigzip"
+| extend UserName = iif(isempty(UserName),  split(TargetFileName, "\\")[4], UserName)
+| extend Extension = split(FileName, ".")[0]
+| extend ExtensionCompany = iif(Extension startswith ("ms"),  "Microsoft Extension", Extension)
+| extend ExtensionCompany = iif(Extension startswith ("oracle"),  "Oracle Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("golang"),  "Golang Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("redhat"),  "RedHat Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("github"),  "Github Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("salesforce"),  "SalesForce Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("mongodb"),  "MongoDB Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("dynatraceplatformextensions") or Extension startswith "dynatrace",  "Dynatrace Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("sonarsource"),  "Sonarsource Extensions", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("vscjava"),  "VSC Java Extensions", ExtensionCompany)
+| where ExtensionCompany has_any (_vscode) or Extension has_any(_vscode)
+| project Extension, ExtensionCompany,FileName ,ContextBaseFileName, TargetFileName, ComputerName, UserName
+| summarize make_set(ComputerName), make_set(UserName) by ExtensionCompany
+| extend ComputerCount = array_length(set_ComputerName)
+| project ExtensionCompany, ComputerCount
+| sort by ComputerCount desc
+
+//Unique VS Code Extensions by Company Name
+let _vscode = '';
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where event_simpleName endswith "Written"
+| where ContextBaseFileName == "Code.exe"
+| where TargetFileName has "CachedExtensionVSIXs" and FileName endswith "sigzip"
+| extend UserName = iif(isempty(UserName),  split(TargetFileName, "\\")[4], UserName)
+| extend Extension = split(FileName, ".")[0]
+| extend ExtensionCompany = iif(Extension startswith ("ms"),  "Microsoft Extension", Extension)
+| extend ExtensionCompany = iif(Extension startswith ("oracle"),  "Oracle Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("golang"),  "Golang Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("redhat"),  "RedHat Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("github"),  "Github Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("salesforce"),  "SalesForce Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("mongodb"),  "MongoDB Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("dynatraceplatformextensions") or Extension startswith "dynatrace",  "Dynatrace Extension", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("sonarsource"),  "Sonarsource Extensions", ExtensionCompany)
+| extend ExtensionCompany = iif(Extension startswith ("vscjava"),  "VSC Java Extensions", ExtensionCompany)
+| project Extension, ExtensionCompany,FileName ,ContextBaseFileName, TargetFileName, ComputerName, UserName
+| where ExtensionCompany has_any (_vscode) or Extension has_any(_vscode)
+| summarize make_set(ComputerName), make_set(UserName) by ExtensionCompany, FileName
+| extend ComputerCount = array_length(set_ComputerName)
+| where not (FileName has_any ("ms","oracle","golang","redhat","github","dynatrace","salesforce","mongodb")) //The folder for VS-Code extensions will start with the publisher. Through research, these are some popular publishers.
+| where ComputerCount == 1
+| project ExtensionCompany, ComputerCount, ExtensionName=FileName
+| sort by ComputerCount asc
+
+//DNS requests by VS Code
+let _domain = 'Domain name here';
+let _host = 'Enter Computer Name';
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where event_simpleName startswith "DNS"
+| where ContextBaseFileName == "Code.exe"
+| where ComputerName has _host
+| where DomainName has _domain
+| summarize ComputerNames=make_set(ComputerName) by tostring(DomainName), ContextBaseFileName
+| extend HostCount = array_length(ComputerNames)
+| sort by tolong(HostCount) desc
+| take 100
+
+
+//DNS requests by VS Code Tunnel EXE (Remoting)
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where event_simpleName == 'UserLogon'
+| project
+    UserName = trim("myadm|youradm|$", UserName), //clean up admin naming suffixes to normalize
+    ComputerName=ClientComputerName
+| join kind = inner
+    (
+    database('Endpoint').CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+    | where event_simpleName startswith "DNS"
+    | where ContextBaseFileName == "code-tunnel.exe"
+    | project DomainName, ContextBaseFileName, ComputerName, UserName, record)
+    on ComputerName
+| project DomainName, ContextBaseFileName, ComputerName, UserName
+| join kind = inner  
+    (
+    database('Identity').yourIDprovider
+| where ingestion_time() > ago(1d)
+    | where message == 'userinfo'  
+    | project
+        TimeGenerated,
+        tostring(UserName=after.['sAMAccountName']),
+        after,
+        after.['mail'],
+        after.['whenCreated'],
+        tostring(['ej-personalEmail']=after.['ej-personalEmail']),
+        after.['ej-Mobile'],
+        after.['pwdLastSet'],
+        after.['streetAddress'],
+        title=after.['title'],
+        division=after.['division'],
+        after.['department'],
+        after.['memberOf'],
+        after.['lockOut'],
+        after.['co'],
+        record)
+      on UserName
+| project
+    ContextBaseFileName,
+    DomainName,
+    ComputerName,
+    ['title'],
+    UserName,
+    after_whenCreated,
+    division,
+    TimeGenerated
+| summarize
+    ComputerName=make_set(ComputerName),
+    ContextBaseFileName=make_set(ContextBaseFileName),
+    DomainName=make_set(DomainName),
+    TimeGenerated=make_set(TimeGenerated, 10),
+    make_set(after_whenCreated)
+    by UserName, tostring(['title']), tostring(division)
