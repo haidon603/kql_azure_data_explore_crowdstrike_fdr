@@ -1,0 +1,24 @@
+database('Endpoint').CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+    and ImageFileName matches regex "^\\\\Device\\\\HarddiskVolume[0-9]\\\\Users"
+    and not(ImageFileName contains "AppData")
+    and not(ImageFileName contains "vscode")
+| where not(ImageFileName endswith ".dll")
+    and not(ImageFileName endswith ".pyd")
+    and not(ImageFileName contains "ScreenMeet.Support")
+    and not(ImageFileName contains "msedgedriver")
+    and not(ImageFileName contains "chromedriver")
+    and not(ImageFileName contains "Zoom")
+    and not(ImageFileName contains "terraform")
+    and not(ImageFileName endswith "python.exe")
+    and not(ImageFileName endswith "java.exe")
+    and not(ImageFileName endswith "terraform.exe")
+    and not(ImageFileName endswith "MSTeamsSetup.exe")
+    and not(ImageFileName endswith "snowsql.exe")
+    and not(ImageFileName endswith "databricks.exe")
+    and not(ImageFileName endswith "firefox.exe")
+| extend basefilename = tostring(split(ImageFileName, "\\")[-1])
+| summarize count(), dcount_paths=dcount(ImageFileName), make_list(ImageFileName) by basefilename, ComputerName
+| sort by dcount_paths desc
+//| where dcount_paths < 30 and count_ < 100
+//| summarize count() by ImageFileName
