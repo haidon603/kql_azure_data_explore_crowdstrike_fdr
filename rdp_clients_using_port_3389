@@ -1,0 +1,9 @@
+//hunt processes connecting to port 3389
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where RemotePort == "3389"
+| where ContextBaseFileName != "Microsoft.Tri.Sensor.exe" and ContextBaseFileName != "CSFalconService.exe"
+| summarize ['RDP Client Count']=count()by ContextBaseFileName
+| where isnotempty(ContextBaseFileName)
+| sort by ['RDP Client Count'] desc
+| render barchart
