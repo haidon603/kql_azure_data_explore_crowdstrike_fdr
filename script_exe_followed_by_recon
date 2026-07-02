@@ -1,0 +1,42 @@
+database('Endpoint').CrowdStrikeFDR //users logging in 
+| where ingestion_time() > ago(1d)
+| where event_simpleName == 'UserLogon'
+| project
+    UserName = trim("suffix|$", UserName), //normalize
+    ComputerName=ClientComputerName
+| join kind=inner
+    (
+    database('Endpoint').CrowdStrikeFDR  //Retrieve command events suggesting install
+    | where ingestion_time() > ago(1d)
+    | where event_simpleName == "CommandHistory"
+    | where CommandHistory has_any ("Get-ExecutionPolicy", "$PSVersionTable") and CommandHistory has_any ("install-module", "get-module", "npm", "java", "winget", "install")
+    )
+    on ComputerName  
+| project
+    UserName,
+    ComputerName,
+    event_simpleName,
+    CommandHistory_split =  split(CommandHistory, "¶")
+| join kind = inner  
+    (
+    database('Identity').yourIDAM  //Contextualize user
+    | where TimeGenerated > ago(24h)  
+    | where message == 'info'  
+    | project
+        TimeGenerated,
+        tostring(UserName=after.['sAMAccountName']),
+        after,
+        after.['mail'],
+        tostring(after.['whenCreated']),    
+        title=tostring(after.['title']),
+        division=tostring(after.['division']),
+        after.['department'],
+        after.['lockOut'],
+        record)
+    on UserName
+| summarize
+    make_set(ComputerName),
+    make_set(CommandHistory_split),
+    make_set(record, 5)
+    by UserName, ['title'], division, after_whenCreated
+
