@@ -1,0 +1,18 @@
+//This will retrieve any PowerShell and Cmd events from hosts after an RDP logon event was observed
+let RDP_Host =
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where event_simpleName startswith "UserLogon"
+| where LogonType == "10"
+| project ComputerName;
+CrowdStrikeFDR
+| where ingestion_time() > ago(1d)
+| where ComputerName in (RDP_Host)
+| where event_simpleName == "ProcessRollup2"
+| where FileName == "powershell.exe" or FileName == "cmd.exe"
+| where not (CommandLine has_any ("nessus_","HPAudioAnalytics"))
+| where not (ParentBaseFileName has_any ("Git","CcmExec.exe","CertifiedVersionEngine.exe"))
+| where not (GrandParentBaseFileName has_any ("NodeManager.exe"))
+| where CommandLine has_any ("Invoke","iwr","net")
+| summarize CommandLine=make_set(CommandLine) by ComputerName, FileName, ParentBaseFileName, GrandParentBaseFileName
+| take 200
