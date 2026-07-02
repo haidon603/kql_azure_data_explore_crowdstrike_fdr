@@ -1,0 +1,6 @@
+CrowdStrikeFDR
+| where TimeGenerated > ago(1d)
+| where event_simpleName == "ProcessRollup2"and CommandLine matches regex @"^[D-Z]:\\" and (isempty(ParentBaseFileName) or ParentBaseFileName =~ "powershell.exe"  or ParentBaseFileName =~ "cmd.exe"  or ParentBaseFileName =~ "setup.exe"  or ParentBaseFileName =~ "RemoteExecService.exe" )
+| where CommandLine !has "sysadm" and  ComputerName != "mysccm" and  ComputerName  !contains "mydev-"
+| summarize  count(FileName), make_set(CommandLine,7), make_set(record,5) by ParentBaseFileName, FileName, ComputerName
+| sort by count_FileName asc
