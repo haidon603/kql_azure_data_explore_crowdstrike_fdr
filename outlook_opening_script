@@ -1,0 +1,18 @@
+CrowdStrikeFDR
+| where TimeGenerated > ago(1d)
+| where event_simpleName startswith "Script"
+    or event_simpleName == "CommandHistory"
+    or event_simpleName == "NewScriptWritten"
+| where  CommandLine endswith 'outlook.exe' //CommandLine == "\"C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE\" " or
+| project
+    TimeGenerated,
+    ComputerName,
+    ScriptContentName,
+    Process=FileName,
+    ScriptContent,
+    CommandLine,
+    ParentCommandLine, GrandparentCommandLine, FileFormatString,
+    CommandHistory,
+    record,
+    event_simpleName
+| sort by ScriptContent
