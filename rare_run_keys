@@ -1,0 +1,12 @@
+CrowdStrikeFDR
+| where TimeGenerated > ago(1d)
+| where event_simpleName == "AsepValueUpdate" or event_simpleName contains "Reg"
+| where RegObjectName has_any  (
+    "\\Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+    "\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnce",
+    "\\Software\\Microsoft\\Windows\\CurrentVersion\\RunOnceEx",
+    "\\Software\\Microsoft\\Windows\\CurrentVersion\\Policies\\Explorer\\Run",
+    "\\Software\\Microsoft\\Windows NT\\CurrentVersion\\Winlogon\\Shell")
+| where RegValueName !startswith  ("Microsoft") and RegValueName !startswith  ("C__WINDOWS_TEMP")  and RegValueName !startswith  ("GoogleChrome")
+| summarize make_set(record,10), c=count() by tostring(RegValueName)
+| sort by c asc
